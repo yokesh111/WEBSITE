@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seat Booking & Resale System</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .seats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .seat {
+      padding: 12px;
+      background: #ddd;
+      border-radius: 5px;
+      text-align: center;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .booked {
+      background: #ff7676;
+      color: white;
+    }
+    #log {
+      margin-top: 20px;
+      background: #eef;
+      padding: 10px;
+      border-radius: 5px;
+      min-height: 40px;
+    }
+    .price-box {
+    background: #fffbf0;
+    padding: 15px;
+    border: 2px dashed #f7b500;
+    border-radius: 12px;
+    margin-top: 15px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  }
+  .highlight {
+    background: #fff3cd;
+    padding: 8px;
+    border-radius: 8px;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>Seat Booking & Resale System</h1>
+
+    <div class="seats" id="seatContainer"></div>
+
+    <h3>Actions</h3>
+    <label>Seat Number:</label>
+    <input type="number" id="seatNo" min="1" max="10" />
+    <br /><br />
+    <label>Name:</label>
+    <input type="text" id="userName" />
+    <br /><br />
+    <button onclick="bookSeat()">Book Seat</button>
+    <button onclick="resaleSeat()">Resale Seat</button>
+
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const seats = [];
+    for (let i = 1; i <= 10; i++) {
+      seats.push({ number: i, booked: false, owner: "None" });
+    }
+
+    function renderSeats() {
+      const container = document.getElementById("seatContainer");
+      container.innerHTML = "";
+
+      seats.forEach((s) => {
+        const div = document.createElement("div");
+        div.className = "seat" + (s.booked ? " booked" : "");
+        div.textContent = s.number;
+        container.appendChild(div);
+      });
+    }
+
+    function log(msg) {
+      document.getElementById("log").textContent = msg;
+    }
+
+    function bookSeat() {
+      const num = parseInt(document.getElementById("seatNo").value);
+      const name = document.getElementById("userName").value.trim();
+
+      if (!num || !name) return log("Enter seat number and name.");
+
+      const seat = seats[num - 1];
+
+      if (seat.booked) return log("Seat already booked!");
+
+      seat.booked = true;
+      seat.owner = name;
+      renderSeats();
+      log(`Seat ${num} booked by ${name}`);
+    }
+
+    function resaleSeat() {
+      const num = parseInt(document.getElementById("seatNo").value);
+      const name = document.getElementById("userName").value.trim();
+
+      if (!num || !name) return log("Enter seat number and new buyer name.");
+
+      const seat = seats[num - 1];
+
+      if (!seat.booked) return log("Seat not booked yet!");
+
+      seat.owner = name;
+      renderSeats();
+      log(`Seat ${num} resold to ${name}`);
+    }
+
+    renderSeats();
+  </script>
+</body>
+</html>
+
+<!-- Backend: Node.js + Express (server.js) -->
+```javascript
+const express = require('express');
+const app = express();
+const fs = require('fs');
+const cors = require('cors');
+
+app.use(express.json());
+app.use(cors());
+
+// Load seats
+let seats = JSON.parse(fs.readFileSync('seats.json', 'utf8'));
+
+// Get all seats
+app.get('/seats', (req, res) => {
+  res.json(seats);
+});
+
+// Book a seat
+app.post('/book', (req, res) => {
+  const { seatNumber, name } = req.body;
+  const seat = seats.find(s => s.number === seatNumber);
+
+  if (!seat) return res.status(404).json({ message: 'Seat not found' });
+  if (seat.status !== 'available') return res.json({ message: 'Seat already booked' });
+
+  seat.status = 'booked';
+  seat.user = name;
+  fs.writeFileSync('seats.json', JSON.stringify(seats, null, 2));
+
+  res.json({ message: 'Seat booked successfully' });
+});
+
+// Resell seat
+app.post('/resell', (req, res) => {
+  const { seatNumber, newUser } = req.body;
+  const seat = seats.find(s => s.number === seatNumber);
+
+  if (!seat) return res.status(404).json({ message: 'Seat not found' });
+  if (seat.status !== 'booked') return res.json({ message: 'Seat not booked yet' });
+
+  seat.user = newUser;
+  fs.writeFileSync('seats.json', JSON.stringify(seats, null, 2));
+
+  res.json({ message: 'Seat resold successfully' });
+});
+
+app.listen(3000, () => console.log('Server running on port 3000'));
+```
+
+<!-- seats.json file -->
+```json
+[
+  { "number": 1, "status": "available", "user": null },
+  { "number": 2, "status": "available", "user": null },
+  { "number": 3, "status": "available", "user": null },
+  { "number": 4, "status": "available", "user": null },
+  { "number": 5, "status": "available", "user": null }
+]
+```
+
+<!-- Resale with Amount: Updated Backend (server.js) -->
+```javascript
+// Resell seat with amount
+app.post('/resell', (req, res) => {
+  const { seatNumber, newUser, resaleAmount } = req.body;
+  const seat = seats.find(s => s.number === seatNumber);
+
+  if (!seat) return res.status(404).json({ message: 'Seat not found' });
+  if (seat.status !== 'booked') return res.json({ message: 'Seat not booked yet' });
+
+  seat.user = newUser;
+  seat.resaleAmount = resaleAmount;
+  fs.writeFileSync('seats.json', JSON.stringify(seats, null, 2));
+
+  res.json({ message: 'Seat resold successfully', resaleAmount });
+});
+```
+
+<!-- Updated seats.json with price fields -->
+```json
+[
+  { "number": 1, "status": "available", "user": null, "price": 0, "resaleAmount": 0 },
+  { "number": 2, "status": "available", "user": null, "price": 0, "resaleAmount": 0 },
+  { "number": 3, "status": "available", "user": null, "price": 0, "resaleAmount": 0 },
+  { "number": 4, "status": "available", "user": null, "price": 0, "resaleAmount": 0 },
+  { "number": 5, "status": "available", "user": null, "price": 0, "resaleAmount": 0 }
+]
+```
+
+<!-- Frontend Resale Form (HTML snippet) -->
+```html
+<div class="resell-box">
+  <h3>Resell Seat</h3>
+  <input id="resellSeat" placeholder="Seat Number" />
+  <input id="newUser" placeholder="New User Name" />
+  <input id="resellAmount" placeholder="Resale Amount" />
+  <button onclick="resellSeat()">Resell Seat</button>
+</div>
+```
+
+<!-- JavaScript Resell Function -->
+```javascript
+function resellSeat() {
+  const seatNumber = parseInt(document.getElementById('resellSeat').value);
+  const newUser = document.getElementById('newUser').value;
+  const resaleAmount = parseFloat(document.getElementById('resellAmount').value);
+
+  fetch('http://localhost:3000/resell', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seatNumber, newUser, resaleAmount })
+  })
+    .then(res => res.json())
+    .then(data => alert(data.message));
+}
+```
+
+<!-- Description Added -->
+Seat resale now includes pricing. Users can book a seat at a base price, and later resell it at any chosen resale amount. The system updates the new owner and resale price in real-time, giving a full transaction trail.
+
+
+<!-- Buy Price Added to seats.json -->
+```json
+[
+  { "number": 1, "status": "available", "user": null, "buyPrice": 0, "resaleAmount": 0 },
+  { "number": 2, "status": "available", "user": null, "buyPrice": 0, "resaleAmount": 0 },
+  { "number": 3, "status": "available", "user": null, "buyPrice": 0, "resaleAmount": 0 },
+  { "number": 4, "status": "available", "user": null, "buyPrice": 0, "resaleAmount": 0 },
+  { "number": 5, "status": "available", "user": null, "buyPrice": 0, "resaleAmount": 0 }
+]
+```
+
+<!-- Updated Booking API with Buy Price -->
+```javascript
+app.post('/book', (req, res) => {
+  const { seatNumber, name, buyPrice } = req.body;
+  const seat = seats.find(s => s.number === seatNumber);
+
+  if (!seat) return res.status(404).json({ message: 'Seat not found' });
+  if (seat.status !== 'available') return res.json({ message: 'Seat already booked' });
+
+  seat.status = 'booked';
+  seat.user = name;
+  seat.buyPrice = buyPrice;
+  fs.writeFileSync('seats.json', JSON.stringify(seats, null, 2));
+
+  res.json({ message: 'Seat booked successfully' });
+});
+```
+
+<!-- Updated Booking Form -->
+```html
+<div class="price-box">
+  <h3>Book Seat</h3>
+  <input id="bookSeat" placeholder="Seat Number" />
+  <input id="bookUser" placeholder="Your Name" />
+  <input id="buyPrice" placeholder="Buy Price" />
+  <button onclick="bookSeat()">Book Seat</button>
+</div>
+```
+
+<!-- Updated Book Function -->
+```javascript
+function bookSeat() {
+  const seatNumber = parseInt(document.getElementById('bookSeat').value);
+  const name = document.getElementById('bookUser').value;
+  const buyPrice = parseFloat(document.getElementById('buyPrice').value);
+
+  fetch('http://localhost:3000/book', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seatNumber, name, buyPrice })
+  })
+    .then(res => res.json())
+    .then(data => alert(data.message));
+}
+```
+
+<!-- Highlighted Resale Profit/Loss Box -->
+```html
+<div class="highlight">
+  <h4>Profit/Loss Auto-Calculated After Resale (Based on Buy Price vs Resale Amount)</h4>
+</div>
+```
